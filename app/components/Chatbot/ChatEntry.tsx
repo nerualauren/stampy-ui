@@ -119,7 +119,7 @@ const ReferenceSummary = ({
   )
 }
 
-const md = new MarkdownIt({html: true})
+const md = new MarkdownIt({html: false})
 const ReferencePopup = (
   citation: Citation & {className?: string; onClose?: (event: MouseEvent) => void}
 ) => {
@@ -265,6 +265,25 @@ const ChatbotReply = ({
   })
   citations.sort((a, b) => a.index - b.index)
 
+  // Split content into text and citation parts, render text parts as markdown
+  const parts = content?.split(/(\[\d+\])/) || []
+  const renderedParts = parts.map((part, i) => {
+    const citationMatch = part.match(/\[(\d+)\]/)
+    if (citationMatch) {
+      const refId = citationMatch[1]
+      const ref = citationsMap?.get(refId)
+      return ref ? <ReferenceLink key={i} mobile={mobile} {...ref} id={`${ref.id}-${no}`} /> : null
+    }
+    // Render markdown for text parts, disable HTML for security
+    return (
+      <span
+        key={i}
+        className="inner-html"
+        dangerouslySetInnerHTML={{__html: md.render(part)}}
+      />
+    )
+  })
+
   return (
     <div>
       <Title
@@ -276,17 +295,7 @@ const ChatbotReply = ({
       <PhaseState phase={phase} />
       {thoughts && <Thinking thoughts={thoughts} phase={phase} />}
       <div className="padding-bottom-56 padding-left-56-rigid large-reading">
-        {content?.split(/(\[\d+\])|(\n)/).map((chunk, i) => {
-          if (chunk?.match(/(\[\d+\])/)) {
-            const refId = chunk.slice(1, chunk.length - 1)
-            const ref = citationsMap?.get(refId)
-            return ref && <ReferenceLink key={i} mobile={mobile} {...ref} id={`${ref.id}-${no}`} />
-          } else if (chunk === '\n') {
-            return <br key={i} />
-          } else {
-            return <span key={i}>{chunk}</span>
-          }
-        })}
+        {renderedParts}
       </div>
       <Citations citations={citations} />
       {['followups', 'done'].includes(phase || '') ? (
